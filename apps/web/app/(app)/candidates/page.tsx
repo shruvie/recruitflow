@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Search,
@@ -15,15 +15,27 @@ import {
   ExternalLink,
   CheckCircle2,
   FileText,
+  Database,
 } from 'lucide-react';
 import { INITIAL_CANDIDATES, Candidate } from '../../../lib/mock-data';
 import { CandidateStatus, CandidateSource } from '@recruitflow/core';
+import { getCandidates, supabase, isSupabaseConfigured } from '../../../lib/supabase';
 
 export default function CandidatesPage() {
   const [candidates, setCandidates] = useState<Candidate[]>(INITIAL_CANDIDATES);
   const [search, setSearch] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDbConnected, setIsDbConnected] = useState(false);
+
+  useEffect(() => {
+    setIsDbConnected(isSupabaseConfigured());
+    getCandidates().then((data) => {
+      if (data && data.length > 0) {
+        setCandidates(data);
+      }
+    });
+  }, []);
 
   // New candidate form state
   const [newCandidate, setNewCandidate] = useState({
@@ -36,7 +48,7 @@ export default function CandidatesPage() {
     experienceYears: 5,
   });
 
-  const handleAddCandidate = (e: React.FormEvent) => {
+  const handleAddCandidate = async (e: React.FormEvent) => {
     e.preventDefault();
     const candidate: Candidate = {
       id: `cand_${Date.now()}`,
@@ -59,6 +71,26 @@ export default function CandidatesPage() {
 
     setCandidates([candidate, ...candidates]);
     setIsAddModalOpen(false);
+
+    if (isSupabaseConfigured()) {
+      const parts = newCandidate.name.trim().split(' ');
+      const firstName = parts[0] || 'Candidate';
+      const lastName = parts.slice(1).join(' ') || '';
+
+      await supabase.from('candidates').insert({
+        organization_id: '00000000-0000-0000-0000-000000000001',
+        first_name: firstName,
+        last_name: lastName,
+        email: newCandidate.email,
+        phone: newCandidate.phone || null,
+        current_title: newCandidate.role,
+        years_of_experience: Number(newCandidate.experienceYears),
+        location: newCandidate.location,
+        source: 'SOURCED',
+        status: 'ACTIVE',
+        summary: `Skills: ${newCandidate.skills}. Profile added via Recruiter Portal.`,
+      });
+    }
     setNewCandidate({
       name: '',
       email: '',
@@ -87,6 +119,17 @@ export default function CandidatesPage() {
             <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               {candidates.length} Total
             </span>
+            {isDbConnected ? (
+              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <Database className="w-3 h-3 text-emerald-400" />
+                <span>Supabase Live</span>
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1">
+                <Database className="w-3 h-3 text-slate-400" />
+                <span>Demo Pool</span>
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400">
             Search, filter, and review AI-matched applicants across all open requisitions.

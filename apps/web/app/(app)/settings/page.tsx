@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   ShieldCheck,
@@ -10,8 +10,13 @@ import {
   Key,
   Check,
   Save,
+  Database,
+  ExternalLink,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { RoleKey } from '@recruitflow/core';
+import { isSupabaseConfigured } from '../../../lib/supabase';
 
 export default function SettingsPage() {
   const [orgName, setOrgName] = useState('Acme Tech Corp');
@@ -19,6 +24,11 @@ export default function SettingsPage() {
   const [aiModel, setAiModel] = useState('claude-3-5-sonnet-20241022');
   const [temperature, setTemperature] = useState(0.2);
   const [isSaved, setIsSaved] = useState(false);
+  const [isDbConnected, setIsDbConnected] = useState(false);
+
+  useEffect(() => {
+    setIsDbConnected(isSupabaseConfigured());
+  }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +90,45 @@ export default function SettingsPage() {
               <p className="text-[11px] text-emerald-400/80 mt-0.5">
                 Every query is automatically scoped with TenantContext, validated via Prisma client extensions and PostgreSQL Row-Level Security policies.
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Supabase Cloud Database Integration Panel */}
+        <div className="rounded-xl bg-slate-900/70 border border-slate-800/80 p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-100">
+              <Database className="w-4 h-4 text-emerald-400" />
+              <span>Supabase Cloud Database Connection</span>
+            </div>
+            {isDbConnected ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Connected & Live</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>Awaiting Supabase Keys</span>
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            RecruitFlow is ready to sync live with your Supabase PostgreSQL database. All tables, custom enums, indexes, and full-text search triggers are defined in <code className="text-emerald-400 bg-slate-950 px-1.5 py-0.5 rounded font-mono text-[11px]">supabase_schema.sql</code>.
+          </p>
+
+          <div className="p-3.5 rounded-lg bg-slate-950/70 border border-slate-800 space-y-2 text-xs">
+            <div className="font-semibold text-slate-200">How to connect your Supabase project:</div>
+            <ol className="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
+              <li>Open your project at <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-emerald-400 underline inline-flex items-center gap-0.5">supabase.com <ExternalLink className="w-2.5 h-2.5" /></a></li>
+              <li>Go to <strong>SQL Editor</strong>, paste and run the provided <code className="text-slate-300">supabase_schema.sql</code> script.</li>
+              <li>Go to <strong>Project Settings → API</strong> and copy your Project URL & anon key.</li>
+              <li>Add them to your environment variables (<code className="text-slate-300">.env</code> and Vercel Project Settings):</li>
+            </ol>
+            <div className="p-2.5 bg-black/60 rounded font-mono text-[10px] text-emerald-300 border border-slate-800 space-y-0.5">
+              <div>NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co</div>
+              <div>NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...</div>
             </div>
           </div>
         </div>
