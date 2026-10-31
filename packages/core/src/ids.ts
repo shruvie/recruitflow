@@ -1,5 +1,3 @@
-import { randomBytes, randomUUID } from 'node:crypto';
-
 /**
  * UUIDv7 — time-ordered, so primary keys stay index-local instead of scattering
  * random writes across the B-tree. Generated in the application rather than the
@@ -9,20 +7,27 @@ import { randomBytes, randomUUID } from 'node:crypto';
  * | variant 0b10 | 62 random bits.
  */
 export function uuidv7(): string {
-  const bytes = randomBytes(16);
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
   const ms = Date.now();
 
-  bytes[0] = (ms / 2 ** 40) & 0xff;
-  bytes[1] = (ms / 2 ** 32) & 0xff;
-  bytes[2] = (ms / 2 ** 24) & 0xff;
-  bytes[3] = (ms / 2 ** 16) & 0xff;
-  bytes[4] = (ms / 2 ** 8) & 0xff;
+  bytes[0] = Math.floor(ms / 2 ** 40) & 0xff;
+  bytes[1] = Math.floor(ms / 2 ** 32) & 0xff;
+  bytes[2] = Math.floor(ms / 2 ** 24) & 0xff;
+  bytes[3] = Math.floor(ms / 2 ** 16) & 0xff;
+  bytes[4] = Math.floor(ms / 2 ** 8) & 0xff;
   bytes[5] = ms & 0xff;
 
   bytes[6] = (bytes[6]! & 0x0f) | 0x70; // version 7
   bytes[8] = (bytes[8]! & 0x3f) | 0x80; // variant 10
 
-  const hex = bytes.toString('hex');
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
@@ -39,7 +44,11 @@ export function isUuid(value: string): boolean {
 }
 
 export function requestId(): string {
-  return `req_${randomUUID().replace(/-/g, '')}`;
+  const uuid =
+    typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID
+      ? globalThis.crypto.randomUUID()
+      : uuidv7();
+  return `req_${uuid.replace(/-/g, '')}`;
 }
 
 /** URL-safe slug within a tenant. Uniqueness is enforced by the database, not here. */
