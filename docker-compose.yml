@@ -1,0 +1,76 @@
+# Local development infrastructure for RecruitFlow.
+#
+# Nothing in the application code depends on these specific services directly:
+# Postgres sits behind the repository layer, Redis behind the QueueProvider /
+# CacheProvider interfaces, Mailpit behind the EmailProvider interface, and
+# MinIO behind the StorageProvider interface. Swapping any of them out is a
+# driver change, not an application change.
+
+name: recruitflow
+
+services:
+  postgres:
+    # pgvector image is used so that the (later, user-implemented) RAG vector
+    # store CAN use pgvector without re-provisioning. The application does not
+    # assume pgvector — see docs/rag-architecture.md.
+    image: pgvector/pgvector:pg16
+    container_name: recruitflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: recruitflow
+      POSTGRES_PASSWORD: recruitflow
+      POSTGRES_DB: recruitflow
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U recruitflow -d recruitflow']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: recruitflow-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    # Local SMTP sink + web UI at http://localhost:8025
+    image: axllent/mailpit:latest
+    container_name: recruitflow-mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+  minio:
+    # S3-compatible object storage for exercising the S3 storage driver locally.
+    # Console at http://localhost:9001
+    image: minio/minio:latest
+    container_name: recruitflow-minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: recruitflow
+      MINIO_ROOT_PASSWORD: recruitflow
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
